@@ -156,4 +156,4 @@ def handle_connect():
         emit('connection_status', {'status': 'connected', 'game_id': game_id})
 
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True, allow_unsafe_werkzeug=True, async_mode='threading')
+    socketio.run(app, host='0.0.0.0', port=5000, debug=True, allow_unsafe_werkzeug=True)
