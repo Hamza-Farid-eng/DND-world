@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multiplayer D&D</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .card { margin-bottom: 20px; }
+        .chat-log { height: 200px; overflow-y: auto; padding: 10px; border: 1px solid #dee2e6; border-radius: 4px; }
+        .message { padding: 5px 0; }
+    </style>
+</head>
+<body class="bg-light">
+    <div class="container min-vh-100">
+        <!-- Lobby Section -->
+        <div id="lobby" class="d-none">
+            <div class="row justify-content-center">
+                <div class="col-md-6 card p-4">
+                    <h2 class="text-center mb-3">Multiplayer D&D</h2>
+                    <div class="mb-3">
+                        <label>Your Name:</label>
+                        <input type="text" id="playerName" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label>Class:</label>
+                        <select id="playerClass" class="form-control">
+                            <option value="fighter">Fighter</option>
+                            <option value="wizard">Wizard</option>
+                            <option value="rogue">Rogue</option>
+                        </select>
+                    </div>
+                    <button id="createBtn" class="btn btn-primary w-100">Create Game</button>
+                    <button id="joinBtn" class="btn btn-secondary w-100 mt-2">Join Game</button>
+                    <input type="text" id="gameIdInput" class="form-control d-none" placeholder="Game ID">
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Section -->
+        <div id="game" class="d-none">
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="card p-4">
+                        <h3>Game Room: <span id="roomId"></span></h3>
+                        <div class="mb-3">
+                            <strong>Turn:</strong> <span id="turnDisplay"></span>
+                        </div>
+                        <div class="chat-log" id="chatLog"></div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card p-4">
+                        <h4>Your Character</h4>
+                        <p><strong>Class:</strong> <span id="charClass"></span></p>
+                        <p><strong>HP:</strong> <span id="charHp"></span>/<span id="maxHp"></span></p>
+                        <hr>
+                        <h4>Actions</h4>
+                        <button class="btn btn-success w-100 mb-2" onclick="attack()">Attack</button>
+                        <button class="btn btn-warning w-100 mb-2" onclick="heal()">Heal</button>
+                        <small class="text-muted d-block">Cooldown: Once per battle</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let gameId = '';
+        let playerName = '';
+        let playerClass = '';
+
+        // Lobby events
+        document.getElementById('createBtn').onclick = () => {
+            playerName = document.getElementById('playerName').value || 'Player1';
+            playerClass = document.getElementById('playerClass').value;
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/create_game');
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.onload = () => {
+                const resp = JSON.parse(xhr.responseText);
+                if (resp.success) {
+                    gameId = resp.game_id;
+                    document.getElementById('lobby').classList.add('d-none');
+                    document.getElementById('game').classList.remove('d-none');
+                    document.getElementById('roomId').textContent = gameId;
+                    socket.emit('join_room', gameId);
+                }
+            };
+            xhr.send(JSON.stringify({name: playerName, class: playerClass}));
+        };
+
+        document.getElementById('joinBtn').onclick = () => {
+            playerName = document.getElementById('playerName').value || 'Player1';
+            playerClass = document.getElementById('playerClass').value;
+            const gameId = document.getElementById('gameIdInput').value || '';
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/join_game');
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.onload = () => {
+                const resp = JSON.parse(xhr.responseText);
+                if (resp.success) {
+                    gameId = resp.game_id;
+                    document.getElementById('lobby').classList.add('d-none');
+                    document.getElementByid('game').classList.remove('d-none');
+                    document.getElementById('roomId').textContent = gameId;
+                    socket.emit('join_room', gameId);
+                } else {
+                    alert(resp.error || 'Failed to join');
+                }
+            };
+            xhr.send(JSON.stringify({name: playerName, class: playerClass, game_id: gameId}));
+        };
+
+        // Socket events
+        socket.on('connect', () => {
+            console.log('Connected to server');
+        });
+
+        socket.on('game_state', (state) => {
+            updateGameState(state);
+        });
+
+        function updateGameState(state) {
+            document.getElementById('turnDisplay').textContent = state.turn;
+            document.getElementById('charClass').textContent = state.players[playerName]?.class || '---';
+            document.getElementById('charHp').textContent = state.players[playerName]?.hp || '---';
+            document.getElementById('maxHp').textContent = state.players[playerName]?.max_hp || '---';
+
+            const chatLog = document.getElementById('chatLog');
+            chatLog.innerHTML = '';
+            state.messages.forEach(msg => {
+                const div = document.createElement('div');
+                div.className = 'message';
+                div.textContent = msg;
+                chatLog.appendChild(div);
+            });
+            chatLog.scrollTop = chatLog.scrollHeight;
+        }
+
+        // Actions
+        function attack() {
+            if (!gameId) return;
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/action');
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.onload = () => {
+                const resp = JSON.parse(xhr.responseText);
+                if (resp.message) addMessage(resp.message);
+            };
+            xhr.send(JSON.stringify({action: 'attack', target: Object.keys(state.players)[0] || 'enemy'}));
+        }
+
+        function heal() {
+            if (!gameId) return;
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/action');
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.onload = () => {
+                const resp = JSON.parse(xhr.responseText);
+                if (resp.message) addMessage(resp.message);
+            };
+            xhr.send(JSON.stringify({action: 'heal'}));
+        }
+
+        function addMessage(msg) {
+            const chatLog = document.getElementById('chatLog');
+            const div = document.createElement('div');
+            div.className = 'message';
+            div.textContent = msg;
+            chatLog.appendChild(div);
+            chatLog.scrollTop = chatLog.scrollHeight;
+        }
+    </script>
+</body>
+</html>
