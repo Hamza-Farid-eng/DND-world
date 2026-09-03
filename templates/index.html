@@ -1,178 +1,619 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Multiplayer D&D</title>
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        .card { margin-bottom: 20px; }
-        .chat-log { height: 200px; overflow-y: auto; padding: 10px; border: 1px solid #dee2e6; border-radius: 4px; }
-        .message { padding: 5px 0; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Multiplayer D&D Game - Edge Compatible</title>
+<link rel="icon" href="data:,">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Alegreya:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --deep:#120c06; --panel:#241a10; --panel2:#2b2013; --edge:#4d3b1e;
+    --gold:#d4af37; --gold2:#a8893c; --text:#e8dcc0; --muted:#9c8a67;
+    --parch:#efe3c6; --ink:#33281a;
+  }
+  body{
+    min-height:100vh; margin:0; color:var(--text);
+    background-color:var(--deep);
+    background-image:
+      radial-gradient(1100px 480px at 50% -160px, rgba(212,175,55,.14), transparent 70%),
+      linear-gradient(180deg, #261b10 0%, #17110a 55%, #100b06 100%);
+    background-repeat:no-repeat;
+    font-family:"Alegreya", Georgia, "Times New Roman", serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .shell{ max-width:820px; margin:0 auto; padding:0 16px 48px; }
+
+  /* header */
+  .site-header{ text-align:center; padding:26px 8px 18px; }
+  .site-title{
+    margin:0; font-family:"Cinzel", Georgia, serif;
+    font-size:clamp(1.5rem, 5vw, 2.2rem); font-weight:700; color:var(--gold);
+    letter-spacing:.05em; text-shadow:0 2px 12px rgba(0,0,0,.6);
+    display:inline-flex; align-items:center; gap:12px;
+  }
+  .d20{ color:var(--gold); flex:none; }
+  .site-sub{ margin:8px 0 0; color:var(--muted); font-style:italic; }
+
+  /* panels */
+  .panel-card{
+    background-image:linear-gradient(180deg, var(--panel2), var(--panel));
+    background-color:var(--panel);
+    border:1px solid var(--edge); border-radius:12px;
+    box-shadow:0 10px 26px rgba(0,0,0,.45);
+  }
+  .lobby-wrap{ max-width:440px; margin:0 auto; }
+  .panel-title{
+    font-family:"Cinzel", Georgia, serif; color:var(--gold);
+    text-align:center; font-size:1.25rem; margin:0 0 1.1rem; padding-top:.4rem;
+    letter-spacing:.04em;
+  }
+
+  /* form controls */
+  .form-label{ color:var(--muted); font-size:.95rem; margin-bottom:.3rem; }
+  .form-control, .form-select{
+    background-color:#1b130b; border:1px solid var(--edge);
+    color:var(--text); min-height:46px;
+  }
+  .form-control::placeholder{ color:#7d6c4d; }
+  .form-control:focus, .form-select:focus{
+    background-color:#1b130b; border-color:var(--gold2); color:var(--text);
+    box-shadow:0 0 0 .2rem rgba(212,175,55,.22);
+  }
+
+  /* buttons - themed, thumb friendly */
+  .action-btn{ min-height:48px; font-weight:700; font-size:1.05rem; letter-spacing:.02em; font-family:"Cinzel",Georgia,serif; }
+  .btn-primary{
+    --bs-btn-bg:#8f2f1f; --bs-btn-border-color:#a63c29;
+    --bs-btn-hover-bg:#a63c29; --bs-btn-hover-border-color:#b8472f;
+    --bs-btn-active-bg:#7a2818; --bs-btn-active-border-color:#8f2f1f;
+    --bs-btn-disabled-bg:#6b3a30; --bs-btn-disabled-border-color:#6b3a30;
+    --bs-btn-color:#f6e8d8; --bs-btn-hover-color:#fff;
+  }
+  .btn-warning{
+    --bs-btn-bg:#b4862c; --bs-btn-border-color:#c99b3f;
+    --bs-btn-hover-bg:#c99b3f; --bs-btn-hover-border-color:#dcb054;
+    --bs-btn-active-bg:#9a701f; --bs-btn-active-border-color:#b4862c;
+    --bs-btn-disabled-bg:#7c6a3c; --bs-btn-disabled-border-color:#7c6a3c;
+    --bs-btn-color:#241a08; --bs-btn-hover-color:#1d1505;
+  }
+  .btn-outline-light{
+    --bs-btn-color:var(--text); --bs-btn-border-color:var(--edge);
+    --bs-btn-hover-bg:#3a2c19; --bs-btn-hover-border-color:var(--gold2);
+    --bs-btn-hover-color:#f5ead0; --bs-btn-active-bg:#3a2c19;
+  }
+
+  /* lobby extras */
+  .divider{ display:flex; align-items:center; gap:10px; margin:16px 0 14px; color:var(--muted); font-size:.85rem; font-style:italic; }
+  .divider::before, .divider::after{ content:""; flex:1; border-top:1px solid var(--edge); }
+  .game-id-display{ text-align:center; margin-top:14px; color:var(--muted); min-height:30px; }
+  .game-id-display .id-value{
+    display:inline-block; margin-left:6px; font-family:"Cinzel",Georgia,serif;
+    font-size:1.5rem; font-weight:700; color:var(--gold); letter-spacing:.35em;
+    animation:idIn .5s ease;
+  }
+  @keyframes idIn{ from{ opacity:0; transform:scale(.7);} to{ opacity:1; transform:scale(1);} }
+  .lobby-error{ color:#ff9d8b; text-align:center; min-height:20px; margin-top:10px; font-size:.95rem; }
+
+  /* game screen */
+  #gameScreen{ animation:fadeUp .45s ease; }
+  @keyframes fadeUp{ from{ opacity:0; transform:translateY(10px);} to{ opacity:1; transform:none;} }
+  @media (prefers-reduced-motion: reduce){ #gameScreen, .game-id-display .id-value{ animation:none; } }
+  .turn-display{
+    font-family:"Cinzel",Georgia,serif; font-size:1.05rem; color:var(--gold);
+    border:1px solid var(--edge); border-radius:999px; padding:8px 18px;
+    background:rgba(0,0,0,.25); max-width:100%;
+  }
+  .turn-display.your-turn{ border-color:var(--gold); animation:turnPulse 1.8s ease-in-out infinite; }
+  @keyframes turnPulse{
+    0%,100%{ box-shadow:0 0 5px rgba(212,175,55,.25); }
+    50%{ box-shadow:0 0 16px rgba(212,175,55,.55); }
+  }
+  .game-id-badge{ color:var(--muted); border:1px dashed var(--edge); border-radius:8px; padding:6px 12px; font-size:.9rem; white-space:nowrap; }
+  .game-id-badge strong{ color:var(--gold); letter-spacing:.22em; margin-left:4px; }
+  .top-tools .btn{ min-height:38px; }
+
+  /* player cards */
+  .player-card{
+    background-image:linear-gradient(180deg, var(--panel2), var(--panel));
+    border:1px solid var(--edge); border-radius:12px; padding:14px 16px; height:100%;
+    transition:border-color .3s ease, box-shadow .3s ease, opacity .4s ease;
+  }
+  .player-card.active-turn{ border-color:var(--gold); box-shadow:0 0 14px rgba(212,175,55,.3); }
+  .player-card.defeated{ opacity:.5; filter:grayscale(.7); }
+  .player-head{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
+  .player-num{
+    font-size:.7rem; text-transform:uppercase; letter-spacing:.14em; color:var(--muted);
+    border:1px solid var(--edge); border-radius:999px; padding:2px 9px;
+    font-family:"Cinzel",Georgia,serif;
+  }
+  .player-name{ font-weight:700; color:#f4e9cf; font-size:1.05rem; }
+  .you-tag{ color:var(--gold2); font-size:.85rem; font-style:italic; }
+  .class-badge{
+    margin-left:auto; width:30px; height:30px; border-radius:50%;
+    border:1px solid var(--gold2); color:var(--gold);
+    display:inline-flex; align-items:center; justify-content:center;
+    font-family:"Cinzel",Georgia,serif; font-weight:700; font-size:.95rem;
+    background:rgba(0,0,0,.3);
+  }
+  .stat-line{ margin-bottom:3px; }
+  .stat-line strong{ color:#fff1cf; }
+  .player-defeated-tag{ color:#e08573; font-weight:700; font-size:.78rem; letter-spacing:.1em; text-transform:uppercase; margin-top:6px; }
+  .hp-track{ height:12px; border-radius:999px; background:#120c07; border:1px solid #3a2d18; overflow:hidden; margin-top:8px; }
+  .hp-fill{ height:100%; border-radius:999px; transition:width .45s ease; }
+  .hp-high{ background-image:linear-gradient(90deg, #46803a, #6fae5e); }
+  .hp-mid{ background-image:linear-gradient(90deg, #a3742a, #c99b3f); }
+  .hp-low{ background-image:linear-gradient(90deg, #8c2f24, #b3453a); }
+  .hp-dead{ background:#4a4238; }
+
+  /* controls + status */
+  .action-status{ min-height:24px; margin:10px 2px 0; text-align:center; color:#c9b184; font-style:italic; }
+
+  /* battle log - parchment */
+  .log-header{
+    padding:10px 16px; border-bottom:1px solid var(--edge); color:var(--gold);
+    font-family:"Cinzel",Georgia,serif; letter-spacing:.08em;
+    background:rgba(0,0,0,.25); border-radius:12px 12px 0 0; font-size:1rem;
+  }
+  .chat-log{
+    height:200px; overflow-y:auto; background:var(--parch); color:var(--ink);
+    padding:10px 14px; font-size:.95rem; line-height:1.5; border-radius:0 0 12px 12px;
+  }
+  .chat-msg + .chat-msg{ border-top:1px dashed rgba(51,40,26,.18); }
+  .msg-combat{ color:var(--ink); }
+  .msg-system{ color:#7a5a18; font-style:italic; }
+  .msg-error{ color:#a32315; font-weight:700; }
+  .chat-log::-webkit-scrollbar{ width:10px; }
+  .chat-log::-webkit-scrollbar-track{ background:#ddcba2; }
+  .chat-log::-webkit-scrollbar-thumb{ background:#8a7a5c; border-radius:5px; }
+
+  .footer-note{ text-align:center; color:#6f6045; font-size:.8rem; margin-top:26px; }
+</style>
 </head>
-<body class="bg-light">
-    <div class="container min-vh-100">
-        <!-- Lobby Section -->
-        <div id="lobby" class="d-none">
-            <div class="row justify-content-center">
-                <div class="col-md-6 card p-4">
-                    <h2 class="text-center mb-3">Multiplayer D&D</h2>
-                    <div class="mb-3">
-                        <label>Your Name:</label>
-                        <input type="text" id="playerName" class="form-control" required>
-                    </div>
-                    <div class="mb-3">
-                        <label>Class:</label>
-                        <select id="playerClass" class="form-control">
-                            <option value="fighter">Fighter</option>
-                            <option value="wizard">Wizard</option>
-                            <option value="rogue">Rogue</option>
-                        </select>
-                    </div>
-                    <button id="createBtn" class="btn btn-primary w-100">Create Game</button>
-                    <button id="joinBtn" class="btn btn-secondary w-100 mt-2">Join Game</button>
-                    <input type="text" id="gameIdInput" class="form-control d-none" placeholder="Game ID">
-                </div>
-            </div>
+<body>
+<noscript>
+  <div style="background:#7a2818;color:#fff;padding:12px;text-align:center;font-family:sans-serif;">
+    This game needs JavaScript enabled. Please enable it and reload the page.
+  </div>
+</noscript>
+
+<div class="shell">
+  <header class="site-header">
+    <h1 class="site-title">
+      <svg class="d20" viewBox="0 0 24 24" width="30" height="30" aria-hidden="true">
+        <path d="M12 2 21 7.2 21 16.8 12 22 3 16.8 3 7.2Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+        <path d="M12 7 17 15.4 7 15.4Z" fill="currentColor" opacity=".28"/>
+        <path d="M12 2 12 7M21 7.2 17 15.4M3 7.2 7 15.4M7 15.4H17M12 22 12 7M21 16.8 17 15.4M3 16.8 7 15.4" fill="none" stroke="currentColor" stroke-width="1" opacity=".85"/>
+      </svg>
+      Tavern Brawl D&amp;D
+    </h1>
+    <p class="site-sub">Roll a character, share a game ID, settle it with steel.</p>
+  </header>
+
+  <!-- ============ LOBBY SCREEN ============ -->
+  <section id="lobbyScreen">
+    <div class="lobby-wrap">
+      <div class="panel-card p-3 p-md-4">
+        <h2 class="panel-title">Roll a New Adventurer</h2>
+
+        <div class="mb-3">
+          <label class="form-label" for="playerName">Enter your name</label>
+          <input type="text" class="form-control" id="playerName" value="Player1" maxlength="20" autocomplete="off">
         </div>
 
-        <!-- Game Section -->
-        <div id="game" class="d-none">
-            <div class="row">
-                <div class="col-md-8">
-                    <div class="card p-4">
-                        <h3>Game Room: <span id="roomId"></span></h3>
-                        <div class="mb-3">
-                            <strong>Turn:</strong> <span id="turnDisplay"></span>
-                        </div>
-                        <div class="chat-log" id="chatLog"></div>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="card p-4">
-                        <h4>Your Character</h4>
-                        <p><strong>Class:</strong> <span id="charClass"></span></p>
-                        <p><strong>HP:</strong> <span id="charHp"></span>/<span id="maxHp"></span></p>
-                        <hr>
-                        <h4>Actions</h4>
-                        <button class="btn btn-success w-100 mb-2" onclick="attack()">Attack</button>
-                        <button class="btn btn-warning w-100 mb-2" onclick="heal()">Heal</button>
-                        <small class="text-muted d-block">Cooldown: Once per battle</small>
-                    </div>
-                </div>
-            </div>
+        <div class="mb-3">
+          <label class="form-label" for="playerClass">Choose your class</label>
+          <select class="form-select" id="playerClass">
+            <option value="fighter">Fighter — steel and stubbornness</option>
+            <option value="wizard">Wizard — fragile but fearsome</option>
+            <option value="rogue">Rogue — quick blade, quicker tongue</option>
+          </select>
         </div>
+
+        <button type="button" class="btn btn-primary action-btn w-100 mb-2" id="btnCreate">Create Game</button>
+
+        <div class="divider">or join one</div>
+
+        <div class="mb-3">
+          <label class="form-label" for="gameIdInput">Enter Game ID</label>
+          <input type="text" class="form-control" id="gameIdInput" placeholder="e.g. 1234" inputmode="numeric" maxlength="4" autocomplete="off">
+        </div>
+
+        <button type="button" class="btn btn-outline-light action-btn w-100" id="btnJoin">Join Game</button>
+
+        <div id="lobbyError" class="lobby-error" role="alert"></div>
+        <div id="gameIdDisplay" class="game-id-display"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ GAME SCREEN ============ -->
+  <section id="gameScreen" class="d-none">
+
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+      <div id="turnDisplay" class="turn-display">Turn: waiting...</div>
+      <div class="d-flex gap-2 align-items-center top-tools">
+        <div class="game-id-badge">Game<strong id="gameIdText">----</strong></div>
+        <button type="button" class="btn btn-outline-light btn-sm" id="btnCopy">Copy ID</button>
+        <button type="button" class="btn btn-outline-light btn-sm" id="btnReload">Reload</button>
+      </div>
     </div>
 
-    <script>
-        const socket = io();
-        let gameId = '';
-        let playerName = '';
-        let playerClass = '';
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <div class="player-card" id="card1">
+          <div class="player-head">
+            <span class="player-num">Player 1</span>
+            <span class="player-name" id="p1Name">Open seat</span>
+            <span class="you-tag" id="p1You"></span>
+            <span class="class-badge" id="p1Badge">?</span>
+          </div>
+          <div class="stat-line">Class: <strong id="p1ClassTxt">—</strong></div>
+          <div class="stat-line">HP: <strong id="p1Hp">— / —</strong></div>
+          <div class="hp-track"><div id="p1Bar" class="hp-fill hp-high" style="width:0%"></div></div>
+          <div class="player-defeated-tag d-none" id="p1Dead">Defeated</div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="player-card" id="card2">
+          <div class="player-head">
+            <span class="player-num">Player 2</span>
+            <span class="player-name" id="p2Name">Open seat</span>
+            <span class="you-tag" id="p2You"></span>
+            <span class="class-badge" id="p2Badge">?</span>
+          </div>
+          <div class="stat-line">Class: <strong id="p2ClassTxt">—</strong></div>
+          <div class="stat-line">HP: <strong id="p2Hp">— / —</strong></div>
+          <div class="hp-track"><div id="p2Bar" class="hp-fill hp-high" style="width:0%"></div></div>
+          <div class="player-defeated-tag d-none" id="p2Dead">Defeated</div>
+        </div>
+      </div>
+    </div>
 
-        // Lobby events
-        document.getElementById('createBtn').onclick = () => {
-            playerName = document.getElementById('playerName').value || 'Player1';
-            playerClass = document.getElementById('playerClass').value;
-            const xhr = new XMLHttpRequest();
-            xhr.open('POST', '/create_game');
-            xhr.setRequestHeader('Content-Type', 'application/json');
-            xhr.onload = () => {
-                const resp = JSON.parse(xhr.responseText);
-                if (resp.success) {
-                    gameId = resp.game_id;
-                    document.getElementById('lobby').classList.add('d-none');
-                    document.getElementById('game').classList.remove('d-none');
-                    document.getElementById('roomId').textContent = gameId;
-                    socket.emit('join_room', gameId);
-                }
-            };
-            xhr.send(JSON.stringify({name: playerName, class: playerClass}));
-        };
+    <div class="panel-card p-3 mb-3">
+      <div class="d-flex flex-column flex-sm-row gap-2">
+        <button type="button" class="btn btn-primary action-btn flex-fill" id="btnAttack">Attack</button>
+        <button type="button" class="btn btn-warning action-btn flex-fill" id="btnHeal">Heal</button>
+      </div>
+      <div id="actionStatus" class="action-status"></div>
+    </div>
 
-        document.getElementById('joinBtn').onclick = () => {
-            playerName = document.getElementById('playerName').value || 'Player1';
-            playerClass = document.getElementById('playerClass').value;
-            const gameId = document.getElementById('gameIdInput').value || '';
-            const xhr = new XMLHttpRequest();
-            xhr.open('POST', '/join_game');
-            xhr.setRequestHeader('Content-Type', 'application/json');
-            xhr.onload = () => {
-                const resp = JSON.parse(xhr.responseText);
-                if (resp.success) {
-                    gameId = resp.game_id;
-                    document.getElementById('lobby').classList.add('d-none');
-                    document.getElementByid('game').classList.remove('d-none');
-                    document.getElementById('roomId').textContent = gameId;
-                    socket.emit('join_room', gameId);
-                } else {
-                    alert(resp.error || 'Failed to join');
-                }
-            };
-            xhr.send(JSON.stringify({name: playerName, class: playerClass, game_id: gameId}));
-        };
+    <div class="panel-card">
+      <div class="log-header">Battle Log</div>
+      <div id="chatLog" class="chat-log" aria-live="polite"></div>
+    </div>
 
-        // Socket events
-        socket.on('connect', () => {
-            console.log('Connected to server');
-        });
+  </section>
 
-        socket.on('game_state', (state) => {
-            updateGameState(state);
-        });
+  <p class="footer-note">Flask-Socket.IO client · works best with two adventurers per table</p>
+</div>
 
-        function updateGameState(state) {
-            document.getElementById('turnDisplay').textContent = state.turn;
-            document.getElementById('charClass').textContent = state.players[playerName]?.class || '---';
-            document.getElementById('charHp').textContent = state.players[playerName]?.hp || '---';
-            document.getElementById('maxHp').textContent = state.players[playerName]?.max_hp || '---';
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script>
+/* ============ Multiplayer D&D client ============ */
+var socket = null;
+var myName = '';
+var myGameId = '';
+var healUsed = false;        // heal is once per battle
+var lastLogMsg = null;       // last server message rendered (dedupe)
+var knownPlayers = {};       // name -> {class, hp, max_hp}
+var connErrorShown = false;
+var statusTimer = null;
 
-            const chatLog = document.getElementById('chatLog');
-            chatLog.innerHTML = '';
-            state.messages.forEach(msg => {
-                const div = document.createElement('div');
-                div.className = 'message';
-                div.textContent = msg;
-                chatLog.appendChild(div);
-            });
-            chatLog.scrollTop = chatLog.scrollHeight;
+function $(id){ return document.getElementById(id); }
+
+/* ---- 1. init: called on window load ---- */
+function init(){
+  try{
+    if (typeof io !== 'undefined'){
+      socket = io({ reconnectionAttempts: 8, timeout: 8000 });
+      socket.on('connect', function(){
+        connErrorShown = false;
+        addMessage('Connected to game server', 'system');
+      });
+      socket.on('connection_status', function(d){
+        if (d && d.game_id) setGameId(String(d.game_id));
+      });
+      socket.on('game_state', handleGameState);
+      socket.on('error', function(d){
+        addMessage('Error: ' + ((d && d.message) || 'unknown server error'), 'error');
+      });
+      socket.on('connect_error', function(){
+        if (!connErrorShown){
+          connErrorShown = true;
+          addMessage('Connection error - could not reach the game server. Retrying...', 'error');
         }
+      });
+      socket.on('disconnect', function(){
+        addMessage('Disconnected from server - trying to reconnect...', 'system');
+      });
+    } else {
+      addMessage('Socket.IO failed to load - real-time updates disabled.', 'error');
+    }
+  }catch(e){
+    addMessage('Connection error: ' + e.message, 'error');
+  }
 
-        // Actions
-        function attack() {
-            if (!gameId) return;
-            const xhr = new XMLHttpRequest();
-            xhr.open('POST', '/action');
-            xhr.setRequestHeader('Content-Type', 'application/json');
-            xhr.onload = () => {
-                const resp = JSON.parse(xhr.responseText);
-                if (resp.message) addMessage(resp.message);
-            };
-            xhr.send(JSON.stringify({action: 'attack', target: Object.keys(state.players)[0] || 'enemy'}));
-        }
+  $('btnCreate').addEventListener('click', createGame);
+  $('btnJoin').addEventListener('click', joinGame);
+  $('btnAttack').addEventListener('click', sendAttack);
+  $('btnHeal').addEventListener('click', sendHeal);
+  $('btnReload').addEventListener('click', function(){ window.location.reload(); });
+  $('btnCopy').addEventListener('click', copyGameId);
+  $('gameIdInput').addEventListener('input', function(){
+    this.value = this.value.replace(/[^0-9]/g, '');
+  });
 
-        function heal() {
-            if (!gameId) return;
-            const xhr = new XMLHttpRequest();
-            xhr.open('POST', '/action');
-            xhr.setRequestHeader('Content-Type', 'application/json');
-            xhr.onload = () => {
-                const resp = JSON.parse(xhr.responseText);
-                if (resp.message) addMessage(resp.message);
-            };
-            xhr.send(JSON.stringify({action: 'heal'}));
-        }
+  addMessage('Welcome, adventurer. Create or join a game to begin.', 'system');
+}
 
-        function addMessage(msg) {
-            const chatLog = document.getElementById('chatLog');
-            const div = document.createElement('div');
-            div.className = 'message';
-            div.textContent = msg;
-            chatLog.appendChild(div);
-            chatLog.scrollTop = chatLog.scrollHeight;
-        }
-    </script>
+/* ---- POST helper (form-encoded, matches request.form on the server) ---- */
+function postForm(url, fields){
+  var body = Object.keys(fields).map(function(k){
+    return encodeURIComponent(k) + '=' + encodeURIComponent(fields[k]);
+  }).join('&');
+  return fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body
+  }).then(function(r){
+    return r.json().then(
+      function(d){ return { ok: r.ok, d: d }; },
+      function(){ return { ok: false, d: { error: 'Unexpected server response' } }; }
+    );
+  }).catch(function(e){
+    return { ok: false, d: { error: 'Connection error: ' + e.message } };
+  });
+}
+
+/* ---- 2. createGame ---- */
+function createGame(){
+  var name = getName(); if (!name) return;
+  var btn = $('btnCreate');
+  btn.disabled = true; btn.textContent = 'Creating...';
+  postForm('/create_game', { name: name, 'class': $('playerClass').value }).then(function(res){
+    btn.disabled = false; btn.textContent = 'Create Game';
+    if (res.ok && res.d.success){
+      var gid = String(res.d.game_id);
+      showGameId(gid);
+      addMessage('Game created! Share Game ID ' + gid + ' with a friend.', 'system');
+      setTimeout(function(){ enterGame(gid, name); }, 900);
+    } else {
+      var msg = (res.d && res.d.error) || 'Could not create game';
+      showLobbyError(msg);
+      addMessage(msg, 'error');
+    }
+  });
+}
+
+/* ---- 3. joinGame ---- */
+function joinGame(){
+  var name = getName(); if (!name) return;
+  var gid = $('gameIdInput').value.trim();
+  if (!gid){ showLobbyError('Enter a Game ID to join.'); return; }
+  var btn = $('btnJoin');
+  btn.disabled = true; btn.textContent = 'Joining...';
+  postForm('/join_game', { name: name, 'class': $('playerClass').value, game_id: gid }).then(function(res){
+    btn.disabled = false; btn.textContent = 'Join Game';
+    if (res.ok && res.d.success){
+      addMessage('Joined game ' + gid + '.', 'system');
+      enterGame(String(res.d.game_id), name);
+    } else {
+      var msg = (res.d && res.d.error) || 'Could not join game';
+      showLobbyError(msg);
+      addMessage(msg, 'error');
+    }
+  });
+}
+
+function enterGame(gid, name){
+  myName = name; myGameId = gid;
+  healUsed = false; lastLogMsg = null; knownPlayers = {};
+  $('lobbyScreen').classList.add('d-none');
+  $('gameScreen').classList.remove('d-none');
+  setGameId(gid);
+  $('btnHeal').disabled = false; $('btnHeal').textContent = 'Heal';
+  updateActionButtons('');
+  window.scrollTo(0, 0);
+}
+
+/* ---- 4. sendAttack ---- */
+function sendAttack(){
+  try{
+    flashStatus('Attacking...');
+    var payload = { action: 'attack', target: computeTarget() };
+    if (socket) socket.emit('action', payload);
+    postAction(payload, null);
+  }catch(e){ addMessage('Connection error: ' + e.message, 'error'); }
+}
+
+/* ---- 5. sendHeal (once per battle) ---- */
+function sendHeal(){
+  try{
+    flashStatus('Healing...');
+    $('btnHeal').disabled = true;   // disabled while resolving
+    var payload = { action: 'heal' };
+    if (socket) socket.emit('action', payload);
+    postAction(payload, function(ok){
+      if (ok){
+        healUsed = true;            // consumed for this battle
+        $('btnHeal').textContent = 'Heal (used)';
+      } else {
+        $('btnHeal').disabled = false; // rejected - not consumed
+      }
+    });
+  }catch(e){ addMessage('Connection error: ' + e.message, 'error'); }
+}
+
+function postAction(payload, cb){
+  fetch('/action', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).then(function(r){ return r.json(); }).then(function(d){
+    if (d && d.state) handleGameState(d.state);   // local fallback if socket is down
+    if (cb) cb(!!(d && d.success));
+    if (d && d.message && !d.success) addMessage(d.message, 'system');
+  }).catch(function(e){
+    addMessage('Connection error: ' + e.message, 'error');
+    if (cb) cb(false);
+  });
+}
+
+function computeTarget(){
+  var names = Object.keys(knownPlayers);
+  for (var i = 0; i < names.length; i++){
+    if (names[i] !== myName) return names[i];
+  }
+  return 'other_player';
+}
+
+/* ---- 6. handleGameState ---- */
+function handleGameState(data){
+  try{
+    if (!data || !data.players) return;
+    var players = data.players;
+    var names = Object.keys(players);
+
+    names.forEach(function(n){
+      knownPlayers[n] = {
+        class: players[n].class,
+        hp: players[n].hp,
+        max_hp: players[n].max_hp || players[n].hp
+      };
+    });
+    // players missing from state have been defeated
+    Object.keys(knownPlayers).forEach(function(n){
+      if (!players[n]) knownPlayers[n].hp = 0;
+    });
+
+    // turn display
+    var turn = data.turn || '';
+    var td = $('turnDisplay');
+    td.textContent = 'Turn: ' + (turn || 'waiting...');
+    td.classList.toggle('your-turn', !!myName && turn === myName);
+
+    updateActionButtons(turn);
+    renderPlayers(names, turn);
+    syncMessages(data.messages || []);
+  }catch(e){
+    addMessage('Display error: ' + e.message, 'error');
+  }
+}
+
+function renderPlayers(names, turn){
+  var seats = names.slice(0, 2);
+  Object.keys(knownPlayers).forEach(function(n){
+    if (seats.indexOf(n) === -1 && seats.length < 2) seats.push(n);
+  });
+  for (var s = 1; s <= 2; s++){
+    var card = $('card' + s);
+    var name = seats[s - 1];
+    if (!name){
+      $('p' + s + 'Name').textContent = 'Open seat';
+      $('p' + s + 'You').textContent = '';
+      $('p' + s + 'ClassTxt').textContent = '—';
+      $('p' + s + 'Hp').textContent = '— / —';
+      $('p' + s + 'Bar').style.width = '0%';
+      $('p' + s + 'Badge').textContent = '?';
+      $('p' + s + 'Dead').classList.add('d-none');
+      card.classList.remove('active-turn', 'defeated');
+      continue;
+    }
+    var p = knownPlayers[name];
+    var dead = p.hp <= 0;
+    var maxHp = Math.max(p.max_hp || 0, p.hp, 1);
+    var pct = Math.max(0, Math.min(100, Math.round(p.hp / maxHp * 100)));
+    $('p' + s + 'Name').textContent = name;
+    $('p' + s + 'You').textContent = (name === myName) ? '(you)' : '';
+    $('p' + s + 'ClassTxt').textContent = p.class || 'adventurer';
+    $('p' + s + 'Hp').textContent = Math.max(0, p.hp) + ' / ' + maxHp;
+    var bar = $('p' + s + 'Bar');
+    bar.style.width = pct + '%';
+    bar.className = 'hp-fill ' + (dead ? 'hp-dead' : (pct > 55 ? 'hp-high' : pct > 25 ? 'hp-mid' : 'hp-low'));
+    $('p' + s + 'Badge').textContent = (p.class || '?').charAt(0).toUpperCase();
+    $('p' + s + 'Dead').classList.toggle('d-none', !dead);
+    card.classList.toggle('active-turn', name === turn && !dead);
+    card.classList.toggle('defeated', dead);
+  }
+}
+
+function updateActionButtons(turn){
+  var myGo = !turn || turn === myName;  // enabled until first real state arrives
+  $('btnAttack').disabled = !myGo;
+  $('btnHeal').disabled = !myGo || healUsed;
+}
+
+/* server sends only the last 5 log lines - append just the new ones */
+function syncMessages(msgs){
+  if (!msgs || !msgs.length) return;
+  var start = 0;
+  if (lastLogMsg !== null){
+    var idx = msgs.indexOf(lastLogMsg);
+    if (idx !== -1) start = idx + 1;
+  }
+  for (var i = start; i < msgs.length; i++) addMessage(msgs[i], 'combat');
+  lastLogMsg = msgs[msgs.length - 1];
+}
+
+/* ---- 7. addMessage ---- */
+function addMessage(msg, type){
+  var log = $('chatLog');
+  if (!log) return;
+  var div = document.createElement('div');
+  div.className = 'chat-msg ' + (type === 'error' ? 'msg-error' : type === 'system' ? 'msg-system' : 'msg-combat');
+  div.textContent = msg;
+  log.appendChild(div);
+  while (log.children.length > 60) log.removeChild(log.firstChild);
+  log.scrollTop = log.scrollHeight;  // auto-scroll to bottom
+}
+
+/* ---- small helpers ---- */
+function getName(){
+  var v = $('playerName').value.trim();
+  if (!v){ showLobbyError('Please enter your name.'); return null; }
+  return v;
+}
+function showLobbyError(msg){ $('lobbyError').textContent = msg || ''; }
+function setGameId(gid){ myGameId = gid; $('gameIdText').textContent = gid; }
+function showGameId(gid){
+  var el = $('gameIdDisplay');
+  el.textContent = '';
+  var lbl = document.createElement('span');
+  lbl.textContent = 'Your Game ID: ';
+  var val = document.createElement('span');
+  val.className = 'id-value';
+  val.textContent = gid;
+  el.appendChild(lbl); el.appendChild(val);
+}
+function copyGameId(){
+  var gid = myGameId || '';
+  if (!gid) return;
+  try{
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(gid).then(
+        function(){ flashStatus('Game ID copied: ' + gid); },
+        function(){ flashStatus('Game ID: ' + gid); }
+      );
+    } else { flashStatus('Game ID: ' + gid); }
+  }catch(e){ flashStatus('Game ID: ' + gid); }
+}
+function flashStatus(txt){
+  var el = $('actionStatus');
+  el.textContent = txt;
+  if (statusTimer) clearTimeout(statusTimer);
+  statusTimer = setTimeout(function(){ el.textContent = ''; }, 1400);
+}
+
+/* ---- safety nets: never a blank/white screen ---- */
+window.addEventListener('error', function(e){
+  try{ addMessage('Script error: ' + (e.message || 'unknown'), 'error'); }catch(_){}
+});
+if (document.readyState === 'complete') init();
+else window.addEventListener('load', init);
+</script>
 </body>
 </html>
