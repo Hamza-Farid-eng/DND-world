@@ -5,7 +5,7 @@ import time
 
 app = Flask(__name__)
 app.secret_key = 'dnd_multiplayer_secret'
-socketio = SocketIO(app)
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 players = {}
 games = {}
@@ -112,7 +112,7 @@ def create_game():
     session['game_id'] = game_id
     session['name'] = name
     session['class'] = char_class
-    join_room(game_id)
+    # join_room removed - client joins via Socket.IO after getting game_id
     return jsonify({'game_id': game_id, 'success': True})
 
 @app.route('/join_game', methods=['POST'])
@@ -130,7 +130,7 @@ def join_game():
     session['game_id'] = game_id
     session['name'] = name
     session['class'] = char_class
-    join_room(game_id)
+    # join_room removed - client joins via Socket.IO after getting game_id
     return jsonify({'game_id': game_id, 'success': True, 'players': list(games[game_id].players.keys())})
 
 @app.route('/action', methods=['POST'])
@@ -149,9 +149,11 @@ def action():
 
 @socketio.on('connect')
 def handle_connect():
+    print(f"Client connected: {request.sid}")
     game_id = session.get('game_id')
     if game_id and game_id in games:
         join_room(game_id)
+        emit('connection_status', {'status': 'connected', 'game_id': game_id})
 
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True, allow_unsafe_werkzeug=True)
+    socketio.run(app, host='0.0.0.0', port=5000, debug=True, allow_unsafe_werkzeug=True, async_mode='threading')
