@@ -35,11 +35,7 @@ class Game:
             return random.randint(8, 10)
 
     def _init_max_hp(self):
-        for name, p in self.players.items():
-            if self.max_hp is None:
-                self.max_hp = p['hp']
-            else:
-                self.max_hp = min(self.max_hp, p['hp'])
+        self.max_hp = min(p['hp'] for p in self.players.values())
 
     def join(self, name, char_class):
         if name not in self.players and len(self.players) < 4:
@@ -58,7 +54,7 @@ class Game:
             return False, "Not your turn!"
 
         if action == "attack":
-            damage = random.randint(1, 8) + self.players[actor]['class'] in ['fighter', 'rogue'] * 2
+            damage = random.randint(1, 8) + (2 if self.players[actor]['class'] in ['fighter', 'rogue'] else 0)
             target_data = self.players.get(target, {'hp': 0})
             target_data['hp'] -= damage
             self.players[target] = target_data
@@ -158,4 +154,4 @@ def handle_connect():
         join_room(game_id)
 
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True)
+    socketio.run(app, host='0.0.0.0', port=5000, debug=True, allow_unsafe_werkzeug=True)
